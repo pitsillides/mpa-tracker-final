@@ -10,13 +10,16 @@ interface Log {
 }
 
 export default function AdminPage() {
+  const [mounted, setMounted] = useState(false) // Προσθήκη για το fix
   const [current, setCurrent] = useState<number>(0)
-  const [val, setVal] = useState<string>('') // Κείμενο για το input
+  const [val, setVal] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [logs, setLogs] = useState<Log[]>([])
   const [lang, setLang] = useState<'EL' | 'EN'>('EL')
 
+  // Fix για το Hydration Error
   useEffect(() => {
+    setMounted(true)
     fetchInitialData()
   }, [])
 
@@ -32,32 +35,24 @@ export default function AdminPage() {
     if (history) setLogs(history)
   }
 
-  // Συνάρτηση που μορφοποιεί τον αριθμό καθώς πληκτρολογείς (π.χ. 1.000,00)
   const formatInput = (input: string) => {
-    // Αφαιρεί οτιδήποτε δεν είναι αριθμός
     const digits = input.replace(/\D/g, '')
     if (!digits) return ''
-    
-    // Μετατροπή σε αριθμό και μορφοποίηση
     const numberValue = parseInt(digits)
     return numberValue.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatInput(e.target.value)
-    setVal(formatted)
+    setVal(formatInput(e.target.value))
   }
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Μετατροπή του formatted string πίσω σε καθαρό αριθμό για τη βάση
     const cleanNum = parseInt(val.replace(/\./g, '').replace(/,/g, ''))
-    
     if (isNaN(cleanNum)) return alert(lang === 'EL' ? "Βάλε έγκυρο αριθμό" : "Enter a valid number")
     
     setLoading(true)
     const { error: updateError } = await supabase.from('progress_data').update({ current_amount: cleanNum }).eq('id', 1)
-    
     if (!updateError) {
       await supabase.from('history_logs').insert([{ old_amount: current, new_amount: cleanNum }])
       setCurrent(cleanNum)
@@ -80,9 +75,11 @@ export default function AdminPage() {
     EN: { panelTitle: 'ADMIN PANEL', currentAmount: 'CURRENT AMOUNT', updateBtn: 'UPDATE TRACKER', historyTitle: 'HISTORY LOGS', clearBtn: 'CLEAR HISTORY', locale: 'en-US' }
   }[lang]
 
+  // Αν δεν έχει φορτώσει ο browser, μην δείξεις τίποτα (αποφεύγει το Error)
+  if (!mounted) return <div className="min-h-screen bg-[#0a0b1e]"></div>
+
   return (
     <div className="min-h-screen bg-[#0a0b1e] text-white p-6 font-sans relative">
-      {/* Language Switcher */}
       <div className="absolute top-6 right-6 flex gap-2">
         {['EL', 'EN'].map(l => (
           <button key={l} onClick={() => setLang(l as 'EL' | 'EN')} className={`px-4 py-2 rounded-xl font-bold transition-all ${lang === l ? 'bg-[#38BDF8] text-[#12133c]' : 'bg-white/10'}`}>{l}</button>
@@ -90,14 +87,13 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 pt-16">
-        {/* Left Side: Controls */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl h-fit">
           <div className="flex items-center gap-4 mb-8">
              <img src="/logo.png" alt="Logo" className="h-12 w-auto opacity-80" />
              <h2 className="text-[#38BDF8] font-black italic uppercase tracking-wider">{t.panelTitle}</h2>
           </div>
           
-          <div className="mb-8 p-6 bg-black/40 rounded-2xl border border-[#38BDF8]/20 text-center shadow-inner">
+          <div className="mb-8 p-6 bg-black/40 rounded-2xl border border-[#38BDF8]/20 text-center">
             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em] mb-2 italic">{t.currentAmount}</p>
             <p className="text-5xl font-mono font-bold text-white tracking-tighter italic">€{current.toLocaleString(t.locale)}</p>
           </div>
@@ -119,7 +115,6 @@ export default function AdminPage() {
           </form>
         </div>
 
-        {/* Right Side: Logs */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl flex flex-col max-h-[650px]">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
             <h2 className="text-yellow-500 font-black italic uppercase tracking-widest">{t.historyTitle}</h2>
@@ -127,7 +122,7 @@ export default function AdminPage() {
           </div>
           <div className="overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {logs.map((log) => (
-              <div key={log.id} className="p-4 bg-black/30 rounded-2xl border border-white/5 flex flex-col gap-2 transition-colors hover:border-white/20">
+              <div key={log.id} className="p-4 bg-black/30 rounded-2xl border border-white/5 flex flex-col gap-2">
                 <div className="flex justify-between items-center text-[11px] text-slate-500 font-bold">
                   <span>{new Date(log.created_at).toLocaleString(t.locale)}</span>
                 </div>
