@@ -12,10 +12,11 @@ export default function AdminPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [lang, setLang] = useState<'EL' | 'EN'>('EL')
 
-  const SECRET_PIN = "2486" 
+  const SECRET_PIN = "1234" 
 
   useEffect(() => {
     setMounted(true)
+    document.title = "MPA PROPERTY PROMOTERS & CONSULTANTS LTD | Admin";
     fetchInitialData()
   }, [])
 
@@ -67,7 +68,6 @@ export default function AdminPage() {
   const clearHistory = async () => {
     const msg = lang === 'EL' ? "Σίγουρα θέλετε να διαγράψετε όλο το ιστορικό;" : "Are you sure you want to clear all history?"
     if (!confirm(msg)) return;
-    
     setLoading(true)
     const { error } = await supabase.from('history_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
     if (!error) setLogs([])
@@ -80,7 +80,8 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-[#0a0b1e] flex items-center justify-center p-6 font-sans">
         <form onSubmit={handleLogin} className="bg-white/5 p-10 rounded-[2.5rem] border border-white/10 w-full max-w-sm text-center shadow-2xl backdrop-blur-md">
-          <h2 className="text-[#38BDF8] font-black mb-2 italic tracking-widest uppercase">Admin Access</h2>
+          <h2 className="text-[#38BDF8] font-black mb-2 italic tracking-widest uppercase text-sm">MPA PROPERTY PROMOTERS</h2>
+          <p className="text-white/40 text-[10px] mb-8">SECURE ADMIN ACCESS</p>
           <input 
             type="password" 
             value={pin}
@@ -104,11 +105,10 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 pt-16">
-        {/* Left Side: Update Amount */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl h-fit">
           <div className="flex items-center gap-4 mb-8">
              <img src="/logo.png" alt="Logo" className="h-12 w-auto opacity-80" />
-             <h2 className="text-[#38BDF8] font-black italic uppercase tracking-wider">{lang === 'EL' ? 'ΠΑΝΕΛ ΔΙΑΧΕΙΡΙΣΗΣ' : 'ADMIN PANEL'}</h2>
+             <h2 className="text-[#38BDF8] font-black italic uppercase tracking-wider text-xs">ADMIN PANEL</h2>
           </div>
           
           <div className="mb-8 p-6 bg-black/40 rounded-2xl border border-[#38BDF8]/20 text-center">
@@ -133,20 +133,13 @@ export default function AdminPage() {
           </form>
         </div>
 
-        {/* Right Side: History Logs with Clear Button */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl flex flex-col max-h-[650px]">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-            <h2 className="text-yellow-500 font-black italic uppercase tracking-widest">
+            <h2 className="text-yellow-500 font-black italic uppercase tracking-widest text-xs">
               {lang === 'EL' ? 'ΙΣΤΟΡΙΚΟ' : 'HISTORY LOGS'}
             </h2>
-            <button 
-              onClick={clearHistory}
-              className="text-[10px] font-bold text-red-400 uppercase hover:text-red-300 transition-colors underline decoration-red-400/30 underline-offset-4"
-            >
-              {lang === 'EL' ? 'ΚΑΘΑΡΙΣΜΟΣ' : 'CLEAR'}
-            </button>
+            <button onClick={clearHistory} className="text-[10px] font-bold text-red-400 uppercase underline">{lang === 'EL' ? 'ΚΑΘΑΡΙΣΜΟΣ' : 'CLEAR'}</button>
           </div>
-          
           <div className="overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {logs.map((log) => (
               <div key={log.id} className="p-4 bg-black/30 rounded-2xl border border-white/5 flex flex-col gap-2">
