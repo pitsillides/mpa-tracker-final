@@ -1,115 +1,82 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-export default function HomePage() {
-  const [amount, setAmount] = useState<number>(0)
-  const [displayAmount, setDisplayAmount] = useState<number>(0)
-  const [lang, setLang] = useState<'EL' | 'EN'>('EL')
-  
-  const goal = 1000000
-  const percentage = (amount / goal) * 100
-  const isFinished = percentage >= 100
+export default function Home() {
+  const [mounted, setMounted] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const target = 1500000
 
-  // Counter Animation
   useEffect(() => {
-    const duration = 2000;
-    const start = displayAmount;
-    const end = percentage;
-    const startTime = performance.now();
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      setDisplayAmount(start + (end - start) * progress);
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [amount]);
-
-  // REALTIME SUBSCRIPTION: Εδώ γίνεται η "μαγεία" του αυτόματου refresh
-  useEffect(() => {
+    setMounted(true)
+    
     const fetchData = async () => {
+      // 1. Φέρνουμε το ποσό προόδου (Αυτό που ήδη είχες)
       const { data } = await supabase.from('progress_data').select('*').single()
-      if (data) setAmount(data.current_amount)
+      if (data) setCurrent(data.current_amount)
+
+      // 2. ΜΕΤΡΗΤΗΣ ΕΠΙΣΚΕΨΕΩΝ (Η προσθήκη που ζήτησες)
+      const { data: stats } = await supabase.from('page_stats').select('visit_count').single()
+      if (stats) {
+        await supabase.from('page_stats')
+          .update({ visit_count: stats.visit_count + 1 })
+          .eq('id', 1)
+      }
     }
+    
     fetchData()
 
-    const channel = supabase.channel('realtime-updates')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'progress_data' 
-      }, (payload: any) => {
-        setAmount(payload.new.current_amount) // Ενημερώνεται αυτόματα χωρίς refresh
+    const subscription = supabase
+      .channel('progress_changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progress_data' }, (payload) => {
+        setCurrent(payload.new.current_amount)
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(subscription) }
   }, [])
 
-  const content = {
-    EL: { title: 'ΠΡΟΟΔΟΣ ΣΤΟΧΟΥ', goodLuck: 'ΚΑΛΗ ΕΠΙΤΥΧΙΑ', success: 'Ο ΣΤΟΧΟΣ ΕΠΙΤΕΥΧΘΗ!', bravo: 'ΜΠΡΑΒΟ!' },
-    EN: { title: 'TARGET PROGRESS', goodLuck: 'GOOD LUCK', success: 'TARGET ACHIEVED!', bravo: 'BRAVO!' }
-  }
+  if (!mounted) return <div className="min-h-screen bg-[#0a0b1e]"></div>
+
+  const percentage = Math.min((current / target) * 100, 100)
 
   return (
-    <main className="h-screen w-full bg-[#12133c] flex flex-col items-center justify-between py-10 px-6 text-white overflow-hidden font-sans relative">
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#38BDF8]/10 blur-[120px] rounded-full pointer-events-none"></div>
-
-      {/* Language Switcher */}
-      <div className="absolute top-6 right-6 flex gap-2 z-50">
-        {['EL', 'EN'].map((l) => (
-          <button key={l} onClick={() => setLang(l as 'EL' | 'EN')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${lang === l ? 'bg-[#38BDF8] border-[#38BDF8] text-[#12133c]' : 'bg-transparent border-white/20 text-white/60 hover:border-white/40'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-shrink-0 relative z-10">
-        <img src="/logo.png" alt="Logo" className="h-24 md:h-32 w-auto object-contain drop-shadow-[0_0_20px_rgba(56,189,248,0.3)]" />
-      </div>
-
-      <div className="text-center z-10">
-        <h1 className="text-3xl md:text-5xl font-black italic tracking-[0.3em] uppercase text-[#38BDF8]">
-          {content[lang].title}
-        </h1>
-      </div>
-
-      {/* Animated Percentage */}
-      <div className="w-full max-w-5xl flex flex-col items-center justify-center relative z-10">
-        <div className="text-center mb-[-1.5rem] md:mb-[-2.5rem] z-20">
-          <span className={`text-[9rem] md:text-[13rem] font-black italic tracking-tighter leading-none drop-shadow-[0_15px_40px_rgba(0,0,0,0.6)] transition-colors duration-1000 ${isFinished ? 'text-yellow-400' : 'text-white'}`}>
-            {displayAmount.toFixed(1)}<span className={`${isFinished ? 'text-yellow-500' : 'text-[#38BDF8]'} text-5xl md:text-7xl ml-2`}>%</span>
-          </span>
+    <main className="min-h-screen bg-[#0a0b1e] flex flex-col items-center justify-center p-6 font-sans">
+      <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl rounded-[3rem] p-12 border border-white/10 shadow-2xl">
+        
+        {/* Logo & Title */}
+        <div className="flex flex-col items-center mb-16">
+          <img src="/logo.png" alt="Logo" className="h-24 mb-8" />
+          <h1 className="text-[#38BDF8] text-sm font-black tracking-[0.4em] uppercase italic text-center leading-loose">
+            MPA PROPERTY PROMOTERS & CONSULTANTS LTD
+          </h1>
         </div>
 
-        {/* Progress Bar with 12 Segments */}
-        <div className="w-full relative px-4">
-          <div className={`relative h-28 md:h-36 w-full bg-black/40 backdrop-blur-xl rounded-2xl border-2 overflow-hidden shadow-2xl transition-all duration-1000 ${isFinished ? 'border-yellow-500' : 'border-white/10'}`}>
-            <div className={`h-full transition-all duration-[2000ms] ease-out relative ${isFinished ? 'bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-100' : 'bg-gradient-to-r from-[#12133c] via-[#38BDF8] to-[#ffffff]'}`}
-              style={{ width: `${Math.min(percentage, 100)}%` }}>
-              {isFinished && (
-                <div className="absolute inset-0 flex items-center justify-end pr-10">
-                  <span className="text-[#12133c] font-black italic text-5xl md:text-7xl tracking-tighter animate-bounce">{content[lang].bravo}</span>
-                </div>
-              )}
-            </div>
-            <div className="absolute inset-0 flex w-full h-full pointer-events-none">
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className={`flex-1 border-r last:border-r-0 h-full ${isFinished ? 'border-yellow-900/20' : 'border-white/10'}`}></div>
-              ))}
-            </div>
+        {/* Progress Bar */}
+        <div className="relative h-24 bg-black/40 rounded-full p-2 border border-white/10 shadow-inner mb-12">
+          <div 
+            className="h-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] rounded-full transition-all duration-1000 ease-out relative shadow-[0_0_30px_rgba(56,189,248,0.4)]"
+            style={{ width: `${percentage}%` }}
+          >
+            {/* Animated Shimmer Effect */}
+            <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:30px_30px] animate-[shimmer_2s_linear_infinite]"></div>
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-black text-3xl italic tracking-tighter drop-shadow-lg">
+            {percentage.toFixed(1)}%
           </div>
         </div>
-      </div>
 
-      {/* Footer Title */}
-      <div className="flex flex-col items-center pb-8 z-10 w-full px-2">
-          <div className="h-[2px] w-full max-w-lg bg-gradient-to-r from-transparent via-[#38BDF8]/30 to-transparent mb-6"></div>
-          <p className={`text-2xl md:text-5xl font-black uppercase tracking-[0.4em] md:tracking-[0.8em] italic text-center whitespace-nowrap transition-all duration-1000 ${isFinished ? 'text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.6)]' : 'text-[#38BDF8]'}`}>
-            {isFinished ? content[lang].success : content[lang].goodLuck}
-          </p>
+        {/* Bottom Stats */}
+        <div className="grid grid-cols-2 gap-8 text-center">
+          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
+            <p className="text-[#38BDF8] text-[10px] font-bold tracking-widest uppercase mb-2">ΠΟΣΟ ΠΡΟΟΔΟΥ</p>
+            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic">€{current.toLocaleString('el-GR')}</p>
+          </div>
+          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
+            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-2">ΣΤΟΧΟΣ</p>
+            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic opacity-60">€{target.toLocaleString('el-GR')}</p>
+          </div>
+        </div>
       </div>
     </main>
   )
