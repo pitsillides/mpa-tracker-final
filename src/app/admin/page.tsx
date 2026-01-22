@@ -7,13 +7,14 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [pin, setPin] = useState('')
   const [current, setCurrent] = useState<number>(0)
-  const [visits, setVisits] = useState<number>(0) // Νέο state για επισκέψεις
+  const [visits, setVisits] = useState<number>(0)
   const [val, setVal] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [logs, setLogs] = useState<any[]>([])
   const [lang, setLang] = useState<'EL' | 'EN'>('EL')
 
-  const SECRET_PIN = "1234" 
+  // --- ΕΔΩ ΕΙΝΑΙ Ο ΝΕΟΣ ΣΟΥ ΚΩΔΙΚΟΣ ---
+  const SECRET_PIN = "2486" 
 
   useEffect(() => {
     setMounted(true)
@@ -22,11 +23,9 @@ export default function AdminPage() {
   }, [])
 
   const fetchInitialData = async () => {
-    // 1. Φόρτωση ποσού
     const { data: progress } = await supabase.from('progress_data').select('*').single()
     if (progress) setCurrent(progress.current_amount)
 
-    // 2. Φόρτωση ιστορικού
     const { data: history } = await supabase
       .from('history_logs')
       .select('*')
@@ -34,7 +33,6 @@ export default function AdminPage() {
       .limit(10)
     if (history) setLogs(history)
 
-    // 3. Φόρτωση επισκέψεων
     const { data: stats } = await supabase.from('page_stats').select('visit_count').single()
     if (stats) setVisits(stats.visit_count)
   }
@@ -102,7 +100,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0b1e] text-white p-6 font-sans relative">
-      {/* Language Switcher */}
       <div className="absolute top-6 right-6 flex gap-2">
         {['EL', 'EN'].map(l => (
           <button key={l} onClick={() => setLang(l as 'EL' | 'EN')} className={`px-4 py-2 rounded-xl font-bold transition-all ${lang === l ? 'bg-[#38BDF8] text-[#12133c]' : 'bg-white/10'}`}>{l}</button>
@@ -110,21 +107,16 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 pt-16">
+        {/* Left Side: Current Status & Update */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl h-fit">
           <div className="flex items-center gap-4 mb-8 text-[#38BDF8] font-black uppercase tracking-wider text-xs italic">
              <img src="/logo.png" alt="Logo" className="h-10" />
              <span>ADMIN PANEL</span>
           </div>
           
-          <div className="mb-6 p-6 bg-black/40 rounded-2xl border border-[#38BDF8]/20 text-center">
+          <div className="mb-8 p-6 bg-black/40 rounded-2xl border border-[#38BDF8]/20 text-center">
             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-2 italic">{lang === 'EL' ? 'ΤΡΕΧΟΝ ΠΟΣΟ' : 'CURRENT AMOUNT'}</p>
             <p className="text-5xl font-mono font-bold text-white tracking-tighter">€{current.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</p>
-          </div>
-
-          {/* Visits Counter - Μόνο για εσένα */}
-          <div className="mb-8 p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{lang === 'EL' ? 'ΕΠΙΣΚΕΨΕΙΣ SITE' : 'SITE VISITS'}</span>
-            <span className="text-2xl font-mono font-bold text-white tracking-widest">{visits}</span>
           </div>
 
           <form onSubmit={handleUpdate} className="space-y-4">
@@ -144,19 +136,27 @@ export default function AdminPage() {
           </form>
         </div>
 
+        {/* Right Side: History & Stats */}
         <div className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl flex flex-col max-h-[650px]">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-            <h2 className="text-yellow-500 font-black italic uppercase tracking-widest text-xs">{lang === 'EL' ? 'ΙΣΤΟΡΙΚΟ' : 'HISTORY LOGS'}</h2>
+            <div className="flex flex-col">
+              <h2 className="text-yellow-500 font-black italic uppercase tracking-widest text-xs">{lang === 'EL' ? 'ΙΣΤΟΡΙΚΟ' : 'HISTORY LOGS'}</h2>
+              {/* ΕΔΩ ΜΠΗΚΕ ΤΟ COUNTER ΠΙΟ ΔΙΑΚΡΙΤΙΚΑ */}
+              <p className="text-[10px] text-blue-400 font-bold mt-1 uppercase tracking-tighter">
+                {lang === 'EL' ? 'Επισκέψεις:' : 'Visits:'} <span className="text-white text-xs ml-1">{visits}</span>
+              </p>
+            </div>
             <button onClick={clearHistory} className="text-[10px] font-bold text-red-400 uppercase underline">{lang === 'EL' ? 'ΚΑΘΑΡΙΣΜΟΣ' : 'CLEAR'}</button>
           </div>
+          
           <div className="overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {logs.map((log) => (
               <div key={log.id} className="p-4 bg-black/30 rounded-2xl border border-white/5 flex flex-col gap-2">
                 <div className="text-[11px] text-slate-500 font-bold">{new Date(log.created_at).toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</div>
                 <div className="flex items-center justify-between px-2 text-xl font-mono font-bold">
-                  <span className="text-slate-500 line-through opacity-50">€{log.old_amount.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</span>
-                  <span className="text-[#38BDF8]">→</span>
-                  <span className="text-white">€{log.new_amount.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</span>
+                  <span className="text-slate-500 line-through opacity-50 text-sm">€{log.old_amount.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</span>
+                  <span className="text-[#38BDF8] text-sm">→</span>
+                  <span className="text-white text-lg">€{log.new_amount.toLocaleString(lang === 'EL' ? 'el-GR' : 'en-US')}</span>
                 </div>
               </div>
             ))}
