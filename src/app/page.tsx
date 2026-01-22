@@ -11,11 +11,11 @@ export default function Home() {
     setMounted(true)
     
     const fetchData = async () => {
-      // 1. Φέρνουμε το ποσό προόδου
+      // 1. Progress Data
       const { data } = await supabase.from('progress_data').select('*').single()
       if (data) setCurrent(data.current_amount)
 
-      // 2. ΜΕΤΡΗΤΗΣ ΕΠΙΣΚΕΨΕΩΝ (Αθόρυβη ενημέρωση)
+      // 2. Silent Visit Counter (Δεν επηρεάζει το UI)
       const { data: stats } = await supabase.from('page_stats').select('visit_count').single()
       if (stats) {
         await supabase.from('page_stats')
@@ -26,7 +26,6 @@ export default function Home() {
     
     fetchData()
 
-    // Real-time ανανέωση
     const subscription = supabase
       .channel('progress_changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progress_data' }, (payload) => {
@@ -37,55 +36,86 @@ export default function Home() {
     return () => { supabase.removeChannel(subscription) }
   }, [])
 
-  // Αποφυγή σφαλμάτων Hydration
   if (!mounted) return <div className="min-h-screen bg-[#0a0b1e]"></div>
 
   const percentage = Math.min((current / target) * 100, 100)
 
   return (
-    <main className="min-h-screen bg-[#0a0b1e] flex flex-col items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl rounded-[3rem] p-12 border border-white/10 shadow-2xl">
+    <main className="min-h-screen bg-[#0a0b1e] flex flex-col items-center justify-center p-4 font-sans selection:bg-[#38BDF8]/30">
+      
+      {/* Background Glows */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#38BDF8]/10 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#0EA5E9]/10 blur-[120px] rounded-full"></div>
+      </div>
+
+      <div className="w-full max-w-4xl bg-white/[0.03] backdrop-blur-2xl rounded-[3rem] p-8 md:p-16 border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] z-10">
         
-        {/* Logo & Επωνυμία */}
+        {/* Logo & Header */}
         <div className="flex flex-col items-center mb-16 text-center">
-          <img src="/logo.png" alt="Logo" className="h-24 mb-8" />
-          <h1 className="text-[#38BDF8] text-sm font-black tracking-[0.4em] uppercase italic leading-loose">
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-[#38BDF8]/20 blur-2xl rounded-full"></div>
+            <img src="/logo.png" alt="Logo" className="h-24 md:h-32 relative z-10 drop-shadow-2xl" />
+          </div>
+          <h1 className="text-[#38BDF8] text-xs md:text-sm font-black tracking-[0.5em] uppercase italic leading-loose max-w-lg">
             MPA PROPERTY PROMOTERS & CONSULTANTS LTD
           </h1>
+          <div className="h-[1px] w-24 bg-gradient-to-r from-transparent via-[#38BDF8]/50 to-transparent mt-4"></div>
         </div>
 
-        {/* Η Μπάρα Προόδου */}
-        <div className="relative h-24 bg-black/40 rounded-full p-2 border border-white/10 shadow-inner mb-12">
-          <div 
-            className="h-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] rounded-full transition-all duration-1000 ease-out relative shadow-[0_0_30px_rgba(56,189,248,0.4)]"
-            style={{ width: `${percentage}%` }}
-          >
-            {/* Shimmer Animation */}
-            <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:30px_30px] animate-[pulse_2s_linear_infinite] opacity-30 rounded-full"></div>
+        {/* Progress Bar Container */}
+        <div className="relative mb-16">
+          <div className="flex justify-between items-end mb-4 px-2">
+            <span className="text-[#38BDF8] text-[10px] font-black tracking-widest uppercase italic">ΠΡΟΟΔΟΣ ΣΤΟΧΟΥ</span>
+            <span className="text-white font-black text-4xl md:text-5xl italic tracking-tighter">
+              {percentage.toFixed(1)}<span className="text-[#38BDF8] text-2xl ml-1">%</span>
+            </span>
           </div>
-          
-          {/* Ποσοστό στο Κέντρο */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-black text-3xl italic tracking-tighter drop-shadow-lg">
-            {percentage.toFixed(1)}%
+
+          <div className="relative h-20 bg-black/40 rounded-3xl p-2 border border-white/10 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] overflow-hidden">
+            {/* The Actual Bar */}
+            <div 
+              className="h-full bg-gradient-to-r from-[#38BDF8] via-[#0EA5E9] to-[#38BDF8] rounded-2xl transition-all duration-1000 ease-out relative shadow-[0_0_20px_rgba(56,189,248,0.3)]"
+              style={{ width: `${percentage}%` }}
+            >
+              {/* Shimmer Effect */}
+              <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] bg-[length:200%_100%] animate-[shimmer_3s_infinite] rounded-2xl"></div>
+            </div>
           </div>
         </div>
 
-        {/* Στατιστικά στο Κάτω Μέρος */}
-        <div className="grid grid-cols-2 gap-8 text-center">
-          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
-            <p className="text-[#38BDF8] text-[10px] font-bold tracking-widest uppercase mb-2">ΠΟΣΟ ΠΡΟΟΔΟΥ</p>
-            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic">
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="group bg-white/[0.02] hover:bg-white/[0.04] transition-all p-8 rounded-[2rem] border border-white/5 hover:border-[#38BDF8]/30 relative overflow-hidden">
+            <p className="text-[#38BDF8] text-[10px] font-bold tracking-[0.2em] uppercase mb-3 opacity-70">ΤΡΕΧΟΝ ΠΟΣΟ</p>
+            <p className="text-4xl md:text-5xl text-white font-mono font-bold tracking-tighter italic relative z-10">
               €{current.toLocaleString('el-GR')}
             </p>
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <div className="w-12 h-12 bg-[#38BDF8] rounded-full blur-xl"></div>
+            </div>
           </div>
-          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-2">ΣΤΟΧΟΣ</p>
-            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic opacity-60">
+
+          <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5 relative overflow-hidden">
+            <p className="text-slate-500 text-[10px] font-bold tracking-[0.2em] uppercase mb-3">ΣΤΟΧΟΣ ΠΩΛΗΣΕΩΝ</p>
+            <p className="text-4xl md:text-5xl text-white/40 font-mono font-bold tracking-tighter italic">
               €{target.toLocaleString('el-GR')}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Footer Decoration */}
+      <div className="mt-12 opacity-20 text-[10px] text-[#38BDF8] tracking-[1em] uppercase font-black italic">
+        Real Estate Progress Tracker
+      </div>
+
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
     </main>
   )
 }
