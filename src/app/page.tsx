@@ -1,32 +1,29 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import confetti from 'canvas-confetti'
 
 export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [current, setCurrent] = useState(0)
-  const target = 1500000
+  const [lang, setLang] = useState<'EL' | 'EN'>('EL')
+  
+  const target = 1000000
 
   useEffect(() => {
     setMounted(true)
-    
     const fetchData = async () => {
-      // 1. Φέρνουμε το ποσό προόδου
       const { data } = await supabase.from('progress_data').select('*').single()
       if (data) setCurrent(data.current_amount)
 
-      // 2. ΜΕΤΡΗΤΗΣ ΕΠΙΣΚΕΨΕΩΝ: Αυξάνουμε κατά 1 κάθε φορά που φορτώνει η σελίδα
       const { data: stats } = await supabase.from('page_stats').select('visit_count').single()
       if (stats) {
         await supabase.from('page_stats').update({ visit_count: stats.visit_count + 1 }).eq('id', 1)
       }
     }
-    
     fetchData()
 
-    // Real-time ανανέωση αν αλλάξεις κάτι από το Admin
-    const subscription = supabase
-      .channel('progress_changes')
+    const subscription = supabase.channel('progress_changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progress_data' }, (payload) => {
         setCurrent(payload.new.current_amount)
       })
@@ -35,41 +32,86 @@ export default function Home() {
     return () => { supabase.removeChannel(subscription) }
   }, [])
 
-  if (!mounted) return <div className="min-h-screen bg-[#0a0b1e]"></div>
+  // Confetti Effect
+  useEffect(() => {
+    if (mounted && current >= target) {
+      const end = Date.now() + 3 * 1000;
+      const frame = () => {
+        confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#38BDF8', '#FFD700'] });
+        confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#38BDF8', '#FFD700'] });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }
+  }, [current, mounted])
 
-  const percentage = Math.min((current / target) * 100, 100)
+  if (!mounted) return <div className="min-h-screen bg-[#020410]"></div>
+
+  const percentage = (current / target) * 100;
+  const isGoalReached = current >= target;
+  const segments = Array.from({ length: 12 }, (_, i) => i);
 
   return (
-    <main className="min-h-screen bg-[#0a0b1e] flex flex-col items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl rounded-[3rem] p-12 border border-white/10 shadow-2xl">
+    <main className="min-h-screen bg-[#020410] flex flex-col items-center justify-center p-6 font-sans relative overflow-hidden">
+      
+      {/* Background Glows */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#38BDF8]/10 blur-[120px] rounded-full animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0EA5E9]/10 blur-[120px] rounded-full animate-pulse"></div>
+      </div>
+
+      {/* Language Switcher */}
+      <div className="absolute top-8 right-8 z-50 flex gap-2">
+        {['EL', 'EN'].map((l) => (
+          <button key={l} onClick={() => setLang(l as 'EL' | 'EN')} className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest border transition-all ${lang === l ? 'bg-[#38BDF8] border-[#38BDF8] text-[#0a0b1e]' : 'bg-transparent border-white/20 text-white/50'}`}>{l}</button>
+        ))}
+      </div>
+
+      <div className="w-full max-w-5xl bg-white/[0.02] backdrop-blur-3xl rounded-[4rem] p-12 md:p-20 border border-white/10 shadow-2xl relative z-10 text-center">
+        
+        {/* Logo */}
         <div className="flex flex-col items-center mb-16">
-          <img src="/logo.png" alt="Logo" className="h-24 mb-8" />
-          <h1 className="text-[#38BDF8] text-sm font-black tracking-[0.4em] uppercase italic text-center leading-loose">
+          <img src="/logo.png" alt="Logo" className="h-28 md:h-36 drop-shadow-2xl mb-10" />
+          <h1 className={`text-xs md:text-sm font-black tracking-[0.5em] uppercase italic transition-colors duration-1000 ${isGoalReached ? 'text-yellow-500' : 'text-[#38BDF8]'}`}>
             MPA PROPERTY PROMOTERS & CONSULTANTS LTD
           </h1>
         </div>
 
-        <div className="relative h-24 bg-black/40 rounded-full p-2 border border-white/10 shadow-inner mb-12">
-          <div 
-            className="h-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] rounded-full transition-all duration-1000 ease-out relative"
-            style={{ width: `${percentage}%` }}
-          >
-            <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:30px_30px]"></div>
+        {/* Progress Bar Container */}
+        <div className="relative mb-12 text-left">
+          <div className="flex justify-between items-end mb-6 px-4">
+            <span className="text-[#38BDF8] text-[11px] font-black tracking-widest uppercase italic opacity-70">
+               {isGoalReached ? (lang === 'EL' ? 'Ο ΣΤΟΧΟΣ ΕΠΙΤΕΥΧΘΗ!' : 'GOAL REACHED!') : (lang === 'EL' ? 'ΠΡΟΟΔΟΣ ΣΤΟΧΟΥ' : 'TARGET PROGRESS')}
+            </span>
+            <span className={`font-black text-6xl md:text-8xl italic tracking-tighter leading-none ${isGoalReached ? 'text-yellow-500' : 'text-white'}`}>
+              {percentage.toFixed(1)}%
+            </span>
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-black text-3xl italic tracking-tighter">
-            {percentage.toFixed(1)}%
+
+          <div className="relative h-28 bg-black/60 rounded-[2rem] p-3 border border-white/10 shadow-inner overflow-hidden">
+            {/* 12 Segments */}
+            <div className="absolute inset-0 flex justify-between px-4 z-20 pointer-events-none opacity-20">
+              {segments.map((s) => (
+                <div key={s} className="w-[1px] h-full bg-white"></div>
+              ))}
+            </div>
+
+            {/* Progress Fill */}
+            <div 
+              className={`h-full rounded-xl transition-all duration-[2000ms] ease-out relative shadow-xl ${isGoalReached ? 'bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9]'}`}
+              style={{ width: `${Math.min(percentage, 100)}%` }}
+            >
+              <div className="absolute inset-0 bg-white/20 blur-sm animate-pulse"></div>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 text-center">
-          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
-            <p className="text-[#38BDF8] text-[10px] font-bold tracking-widest uppercase mb-2">ΠΟΣΟ ΠΡΟΟΔΟΥ</p>
-            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic">€{current.toLocaleString('el-GR')}</p>
-          </div>
-          <div className="bg-black/20 p-6 rounded-3xl border border-white/5">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-2">ΣΤΟΧΟΣ</p>
-            <p className="text-4xl text-white font-mono font-bold tracking-tighter italic opacity-60">€{target.toLocaleString('el-GR')}</p>
-          </div>
+        {/* Footer Text */}
+        <div className="flex flex-col items-center mt-12">
+          <div className={`h-[1px] w-64 mb-8 ${isGoalReached ? 'bg-yellow-500' : 'bg-white/10'}`}></div>
+          <p className={`text-2xl md:text-4xl font-black italic tracking-widest uppercase animate-pulse ${isGoalReached ? 'text-yellow-500' : 'text-white'}`}>
+            {isGoalReached ? (lang === 'EL' ? '✨ ΜΠΡΑΒΟ! ✨' : '✨ BRAVO! ✨') : (lang === 'EL' ? 'ΚΑΛΗ ΕΠΙΤΥΧΙΑ ΣΕ ΟΛΟΥΣ!' : 'GOOD LUCK TO EVERYONE!')}
+          </p>
         </div>
       </div>
     </main>
